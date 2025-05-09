@@ -1,0 +1,3 @@
+R1: Fruit: apple, banana, orange, grape
+R2: Tool: hammer, screwdriver, wrench, pliers, saw, drill
+R3: Drink: coffee, tea, juice, soda, water

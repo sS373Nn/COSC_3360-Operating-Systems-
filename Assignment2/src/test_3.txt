@@ -1,0 +1,38 @@
+3  # Number of resources
+3  # Number of processes
+4  # Available instances of resource 1
+6  # Available instances of resource 2
+5  # Available instances of resource 3
+3 4 2  # Max demand for process 1
+2 3 4  # Max demand for process 2
+1 2 2  # Max demand for process 3
+
+process_1:
+8  # Deadline
+5  # Computation time
+compute 1 ;
+request 1 2 1 ;
+use_resources 2 1 ;
+release 1 2 1 ;
+print_resources_used ;
+end.
+
+process_2:
+10  # Deadline
+6  # Computation time
+compute 2 ;
+request 2 1 3 ;
+use_resources 3 1 ;
+release 2 1 3 ;
+print_resources_used ;
+end.
+
+process_3:
+8  # Deadline (Same as process_1)
+4  # Computation time (Less than process_1, should come before in EDF tie)
+compute 1 ;
+request 0 1 1 ;
+use_resources 1 2 ;
+release 0 1 1 ;
+print_resources_used ;
+end.

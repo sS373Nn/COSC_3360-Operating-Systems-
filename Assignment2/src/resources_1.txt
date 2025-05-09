@@ -1,0 +1,2 @@
+R1: Book: novel, journal, dictionary, comic, manual
+R2: Snack: chips, cookies, pretzels, candy, granola, trailmix

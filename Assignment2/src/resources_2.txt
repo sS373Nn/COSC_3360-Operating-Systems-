@@ -1,0 +1,4 @@
+R1: Vehicle: car, bike, scooter
+R2: Tool: hammer, wrench, pliers, drill
+R3: Beverage: water, juice
+R4: Stationery: pen, pencil, notebook, eraser, sharpener

@@ -1,0 +1,330 @@
+void compute(int compute_time, Process_Data *process){
+    if (compute_time == 0){
+        return;
+    }
+
+    process->deadline--;
+    write(process->process_pipe[1], "compute", MESSAGE_SIZE);
+
+    sem_post(&process->process_sem);
+    sem_wait(&process->process_sem);
+
+    //Don't need to read
+    compute(--compute_time, process);
+
+}
+
+//Unfinished
+//Determine process execution order
+//Add priority type as input
+void banker(std::vector<Process_Data*> process_data_vector){
+    //Sort by location in Process_Data vector instead?
+    std::vector<std::string> instructions_read_from_pipe;
+
+    //Reads in first instruction from each process and halts their progress
+    for(int process = 0; process < process_data_vector.size(); process++){
+        char buffer[100];
+        sem_wait(&process_data_vector[process]->process_sem);
+        read(process_data_vector[process]->process_pipe[process], buffer, 100);
+        std::string instruction(buffer);
+        instructions_read_from_pipe.push_back(instruction);
+    }
+
+
+
+}
+
+
+//Early testing
+
+int pid = fork();
+
+    if (pid == 0){
+        compute(3, process_data_vector[0]);
+    }
+
+    for(int i = 0; i < 4; i++){
+        char buffer[100];
+        sem_wait(&process_data_vector[0]->process_sem);
+        read(process_data_vector[0]->process_pipe[0], buffer, 100);
+        sem_post(&process_data_vector[0]->process_sem);
+        //Cleans word by cutting off at '\0' char
+        std::string incoming_word(buffer);
+
+        std::cout << "We read: " << incoming_word << std::endl;
+    }
+
+//Assignment3
+
+void FIFO(int memory_size, sem_t* FIFO_sem, sem_t* FIFO_ready_sem, int* FIFO_pipe){
+    Main_Memory FIFO_memory("FIFO", memory_size);
+    char buffer[4];
+    std::queue<char> FIFO_set;
+    std::queue<char> offline_set; 
+    
+    sem_wait(FIFO_sem);
+    read(FIFO_pipe[0], buffer, 4);
+    sem_post(FIFO_ready_sem);
+
+    std::string message(buffer);
+
+    take_FIFO_token(message, FIFO_memory, FIFO_set, offline_set);
+    //print_set(FIFO_set);
+
+    std::cout << "We read: " << message << " from pipe." << std::endl;
+
+    while(message != ""){
+        //std::cout << "FIFO waiting for read sem.\n";
+        sem_wait(FIFO_sem);
+        //std::cout << "FIFO Read sem posted, reading from pipe.\n";
+        read(FIFO_pipe[0], buffer, 4);
+        //std::cout << "FIFO Read from pipe.\n";
+        sem_post(FIFO_ready_sem);
+        //std::cout << "FIFO Ready to read sem posted.\n";
+
+        message = buffer;
+
+        std::cout << "We read: " << message << " from pipe." << std::endl;
+        if(message != ""){
+            take_FIFO_token(message, FIFO_memory, FIFO_set, offline_set);
+            //print_set(FIFO_set);
+        }
+        //print_set(FIFO_set);
+    }
+
+    exit(0);
+}
+
+//Add a page to memory
+void add_to_FIFO_memory(const char &page, Main_Memory &memory, std::queue<char> &FIFO_set){
+    //Is page in memory?
+    //If yes:
+    if (memory.frames.count(page)){
+        //Discard, page may be accessed
+        std::cout << "Page " << page << " in memory, can be accessed.\n";
+        
+        return;
+    }
+
+    //Is memory full?
+    //If yes:
+    if(memory.frames.size() == memory.memory_size){
+        std::cout << "Memory full! FIFO!\n";
+        //Find first entry added to FIFO_set
+        //Discard entry
+        memory.frames.erase(FIFO_set.front());
+        FIFO_set.pop();
+        //Add new entry to memory
+        memory.frames.insert(page);
+        //Add new entry FIFO_set
+        FIFO_set.push(page);
+
+        return;
+    }
+    
+    //If no:
+    //Add to memory
+    std::cout << "WE GOT ROOM! No need to FIFO PR!\n";
+    memory.frames.insert(page);
+    //Add to FIFO_set
+    FIFO_set.push(page);
+}
+
+//Take a token, determine what to do with it
+void take_FIFO_token(std::string &token, Main_Memory &memory, std::queue<char> &FIFO_set, std::queue<char> &offline_set){
+    //Do we have service?
+    //If yes:
+    if(split_token(token)){
+        std::cout << "WE HAVE SERVICE!\n";
+        //Do we have any pending pages?
+        //If yes:
+        if(offline_set.size() > 0){
+            std::cout << "WE HAVE STORED OFFLINE PAGE REQUESTS!\n";
+            int set_size = offline_set.size();
+            for(int page = 0; page < set_size; page++){
+                std::cout << "Checking " << offline_set.front();
+                add_to_FIFO_memory(offline_set.front(), memory, FIFO_set);
+                offline_set.pop();
+                //print_set(FIFO_set);
+            }
+        }
+
+        std::cout << "Tryin to add to memory.\n";
+        add_to_FIFO_memory(token[0], memory, FIFO_set);
+
+        return;
+    }
+    
+    //If no:
+    //Is the page in memory already?
+    std::cout << "NO SERVICE!!!\n";
+    if(memory.frames.count(token[0])){
+        //If yes:
+        //Skip it, we can access it
+        std::cout << "But that's ok, we have this stored already.\n";
+
+        return;
+    }
+
+    //If no:
+    //Add page to offline_set
+    std::cout << "Adding to offline set!\n";
+    offline_set.push(token[0]);
+}
+
+void LRU(int memory_size, sem_t* LRU_sem, sem_t* LRU_ready_sem, int* LRU_pipe){
+    Main_Memory LRU_memory("LRU", memory_size);
+    char buffer[4];
+    std::vector<char> LRU_set;
+    std::queue<char> offline_set; 
+    
+    sem_wait(LRU_sem);
+    read(LRU_pipe[0], buffer, 4);
+    sem_post(LRU_ready_sem);
+
+    std::string message(buffer);
+
+    take_LRU_token(message, LRU_memory, LRU_set, offline_set);
+    //print_vector(LRU_set);
+
+    std::cout << "We read: " << message << " from pipe." << std::endl;
+
+    while(message != ""){
+        sem_wait(LRU_sem);
+        read(LRU_pipe[0], buffer, 4);
+        sem_post(LRU_ready_sem);
+
+        message = buffer;
+
+        std::cout << "We read: " << message << " from pipe." << std::endl;
+        if(message != ""){
+            take_LRU_token(message, LRU_memory, LRU_set, offline_set);
+            //print_vector(LRU_set);
+        }
+        //print_vector(LRU_set);
+    }
+
+    exit(0);
+}
+
+void add_to_LRU_memory(const char &page, Main_Memory &memory, std::vector<char> &LRU_set){
+    //Is page in memory?
+    //If yes:
+    if (memory.frames.count(page)){
+        //Discard, page may be accessed
+        std::cout << "Page " << page << " in memory, can be accessed.\n";
+        //If not at end of LRU_set reorder
+        if(page != LRU_set[LRU_set.size() - 1]){
+            std::cout << "Set before reorder:\n";
+            //print_vector(LRU_set);
+            LRU_sort(page, LRU_set);
+            std::cout << "Set after reorder:\n";
+            //print_vector(LRU_set);
+        }
+        
+        return;
+    }
+
+    //Is memory full?
+    //If yes:
+    if(memory.frames.size() == memory.memory_size){
+        std::cout << "Memory full! LRU!\n";
+        //Find first entry added to FIFO_set
+        //Discard entry
+        memory.frames.erase(LRU_set[0]);
+        //Discard LRU and add new entry into LRU_set
+        add_page_LRU(page, LRU_set);
+        //Add new entry to memory
+        memory.frames.insert(page);
+
+        return;
+    }
+    
+    //If no:
+    //Add to memory
+    std::cout << "WE GOT ROOM! No need to FIFO PR!\n";
+    memory.frames.insert(page);
+    //Add to LRU_set
+    LRU_set.push_back(page);
+}
+
+//Take a token, determine what to do with it
+void take_LRU_token(std::string &token, Main_Memory &memory, std::vector<char> &LRU_set, std::queue<char> &offline_set){
+    //Do we have service?
+    //If yes:
+    if(split_token(token)){
+        std::cout << "WE HAVE SERVICE!\n";
+        //Do we have any pending pages?
+        //If yes:
+        if(offline_set.size() > 0){
+            std::cout << "WE HAVE STORED OFFLINE PAGE REQUESTS!\n";
+            int set_size = offline_set.size();
+            for(int page = 0; page < set_size; page++){
+                std::cout << "Checking " << offline_set.front();
+                add_to_LRU_memory(offline_set.front(), memory, LRU_set);
+                offline_set.pop();
+                //print_vector(LRU_set);
+            }
+        }
+
+        std::cout << "Tryin to add to memory.\n";
+        add_to_LRU_memory(token[0], memory, LRU_set);
+
+        return;
+    }
+    
+    //If no:
+    //Is the page in memory already?
+    std::cout << "NO SERVICE!!!\n";
+    if(memory.frames.count(token[0])){
+        //If yes:
+        //Skip it, we can access it
+        std::cout << "But that's ok, we have this stored already.\n";
+        //If not at end of LRU_set reorder
+        if(token[0] != LRU_set[LRU_set.size() - 1]){
+            std::cout << "Set before reorder:\n";
+            //print_vector(LRU_set);
+            LRU_sort(token[0], LRU_set);
+            std::cout << "Set after reorder:\n";
+            //print_vector(LRU_set);
+        }
+
+        return;
+    }
+
+    //If no:
+    //Add page to offline_set
+    std::cout << "Adding to offline set!\n";
+    offline_set.push(token[0]);
+}
+
+//Splits token over ':' and returns true of false for bandwidth
+bool split_token_legacy(std::string &token){
+    char flag = token[2];
+    token = token.substr(0, 1);
+
+    return flag == 'a';
+}
+
+//.hpp:
+
+//Performs FIFO page replacement
+void FIFO(int memory_size, sem_t* FIFO_sem, sem_t* FIFO_ready_sem, int* FIFO_pipe);
+
+//Add a page to memory
+void add_to_FIFO_memory(const char &page, Main_Memory &memory, std::queue<char> &FIFO_set);
+
+//Take a token, determine what to do with it
+void take_FIFO_token(std::string &token, Main_Memory &memory, std::queue<char> &FIFO_set, std::queue<char> &offline_set);
+
+//Performs LRU page replacement
+void LRU(int memory_size, sem_t* LRU_sem, sem_t* LRU_ready_sem, int* LRU_pipe);
+
+//Add a page to memory for LRU
+void add_to_LRU_memory(const char &page, Main_Memory &memory, std::vector<char> &LRU_set);
+
+//Take a token, determine what to do with it
+void take_LRU_token(std::string &token, Main_Memory &memory, std::vector<char> &LRU_set, std::queue<char> &offline_set);
+
+//Splits token over ':' and returns true of false for bandwidth
+bool split_token_legacy(std::string &token);

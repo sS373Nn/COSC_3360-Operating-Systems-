@@ -1,0 +1,35 @@
+2
+3
+5
+6
+3 2
+4 3
+2 4
+
+process_1:
+7
+4
+compute 1 ;
+request 1 1 ;
+use_resources 1 1 ;
+release 1 1 ;
+end.
+
+process_2:
+10
+5
+compute 2 ;
+request 2 1 ;
+use_resources 2 1 ;
+print_resources_used ;
+release 2 1 ;
+end.
+
+process_3:
+9
+4
+compute 1 ;
+request 0 3 ;
+use_resources 1 1 ;
+release 0 3 ;
+end.
